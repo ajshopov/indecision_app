@@ -4,16 +4,34 @@ class IndecisionApp extends React.Component {
     this.handleDeleteOptions = this.handleDeleteOptions.bind(this);
     this.handlePick = this.handlePick.bind(this);
     this.handleAddOption = this.handleAddOption.bind(this);
+    this.handleDeleteOption = this.handleDeleteOption.bind(this);
     this.state = {
       options: []
     };
   }
+  componentDidMount() {
+    try {
+      const json = localStorage.getItem('options');
+      const options = JSON.parse(json);
+      if (options) {
+        this.setState(() => ({ options: options }));
+      }
+    } catch (e) {
+      // do nothing if error, will fall back to empty array
+    }
+  }
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.options.length !== this.state.options.length) {
+      console.log('saving data');
+      const json = JSON.stringify(this.state.options);
+      localStorage.setItem('options', json);
+    }
+  }
+  componentWillUnmount() {
+    console.log('unmount');
+  }
   handleDeleteOptions() {
-    this.setState(() => {
-      return {
-        options: []
-      };
-    });
+    this.setState(() => ({ options: [] }));
   }
   handlePick() {
     const randomNum = Math.floor(this.state.options.length * Math.random());
@@ -25,27 +43,30 @@ class IndecisionApp extends React.Component {
     } else if (this.state.options.indexOf(option) > -1) {
       return 'Duplicate';
     }
-    this.setState(prevState => {
-      return {
-        options: prevState.options.concat(option)
-      };
-    });
+    this.setState(prevState => ({
+      options: prevState.options.concat(option)
+    }));
+  }
+  handleDeleteOption(optionToRemove) {
+    this.setState(prevState => ({
+      options: prevState.options.filter(option => option !== optionToRemove)
+    }));
   }
   render() {
-    const title = "Indecision";
     const subtitle = "Afraid of choosing?";
 
     return React.createElement(
       'div',
       null,
-      React.createElement(Header, { title: title, subtitle: subtitle }),
+      React.createElement(Header, { subtitle: subtitle }),
       React.createElement(Action, {
         hasOptions: this.state.options.length > 0,
         handlePick: this.handlePick
       }),
       React.createElement(Options, {
         options: this.state.options,
-        handleDeleteOptions: this.handleDeleteOptions
+        handleDeleteOptions: this.handleDeleteOptions,
+        handleDeleteOption: this.handleDeleteOption
       }),
       React.createElement(AddOption, {
         handleAddOption: this.handleAddOption
@@ -54,67 +75,79 @@ class IndecisionApp extends React.Component {
   }
 }
 
-class Header extends React.Component {
-  render() {
-    // console.log(this.props);
-    return React.createElement(
-      'div',
+const Header = props => {
+  return React.createElement(
+    'div',
+    null,
+    React.createElement(
+      'h1',
       null,
-      React.createElement(
-        'h1',
-        null,
-        this.props.title
-      ),
-      React.createElement(
-        'h2',
-        null,
-        this.props.subtitle
-      )
-    );
-  }
-}
+      props.title
+    ),
+    props.subtitle && React.createElement(
+      'h2',
+      null,
+      props.subtitle
+    )
+  );
+};
 
-class Action extends React.Component {
-  render() {
-    return React.createElement(
-      'div',
-      null,
-      React.createElement(
-        'button',
-        {
-          disabled: !this.props.hasOptions,
-          onClick: this.props.handlePick
-        },
-        'What should I do?'
-      )
-    );
-  }
-}
+Header.defaultProps = {
+  title: 'Decidor'
+};
 
-class Options extends React.Component {
-  render() {
-    return React.createElement(
-      'div',
-      null,
-      React.createElement(
-        'button',
-        { onClick: this.props.handleDeleteOptions },
-        'remove all'
-      ),
-      this.props.options.map(option => React.createElement(Option, { key: option, optionText: option }))
-    );
-  }
-}
+const Action = props => {
+  return React.createElement(
+    'div',
+    null,
+    React.createElement(
+      'button',
+      {
+        disabled: !props.hasOptions,
+        onClick: props.handlePick
+      },
+      'What should I do?'
+    )
+  );
+};
 
-class Option extends React.Component {
-  render() {
-    return React.createElement(
-      'div',
+const Options = props => {
+  return React.createElement(
+    'div',
+    null,
+    React.createElement(
+      'button',
+      { onClick: props.handleDeleteOptions },
+      'remove all'
+    ),
+    props.options.length === 0 && React.createElement(
+      'p',
       null,
-      this.props.optionText
-    );
-  }
-}
+      'Add an option...'
+    ),
+    props.options.map(option => React.createElement(Option, {
+      key: option,
+      handleDeleteOption: props.handleDeleteOption,
+      optionText: option }))
+  );
+};
+
+const Option = props => {
+  return React.createElement(
+    'div',
+    null,
+    props.optionText,
+    React.createElement(
+      'button',
+      {
+        onClick: e => {
+          props.handleDeleteOption(props.optionText);
+        }
+      },
+      'remove'
+    )
+  );
+};
 
 class AddOption extends React.Component {
   constructor(props) {
@@ -128,11 +161,11 @@ class AddOption extends React.Component {
     e.preventDefault();
     const option = e.target.elements.option.value.trim();
     const error = this.props.handleAddOption(option);
-    this.setState(() => {
-      return { error };
-    });
+    this.setState(() => ({ error }));
 
-    e.target.elements.option.value = '';
+    if (!error) {
+      e.target.elements.option.value = '';
+    }
   }
 
   render() {
@@ -158,6 +191,13 @@ class AddOption extends React.Component {
   }
 }
 
-const jsx = React.createElement(IndecisionApp, null);
+// const User = (props) => {
+//   return (
+//     <div>
+//       <p>Name: {props.name}</p>
+//       <p>Age: {props.age}</p>
+//     </div>
+//   );
+// };
 
-ReactDOM.render(jsx, document.getElementById('app'));
+ReactDOM.render(React.createElement(IndecisionApp, { options: ['no. one', 'no. two'] }), document.getElementById('app'));
